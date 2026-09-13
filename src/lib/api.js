@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Camada de comunicação de dados com suporte híbrido:
  * 1. API Cloudflare Worker (D1 SQLite).
  * 2. Fallback de sincronização instantânea em tempo real via BroadcastChannel + LocalStorage.
@@ -8,8 +8,7 @@ const LOCAL_STORAGE_KEY = 'traz_a_escada_pedidos_v2';
 const broadcast = typeof window !== 'undefined' && window.BroadcastChannel 
   ? new BroadcastChannel('traz_a_escada_sync') 
   : null;
-
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_BASE || 'https://escada-api.acecarmorj.workers.dev/api';
 
 function getLocalPedidos() {
   try {

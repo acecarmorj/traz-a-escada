@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { SolicitarEscadaScreen } from './features/agente/SolicitarEscadaScreen';
 import { PainelCentralScreen } from './features/central/PainelCentralScreen';
@@ -90,8 +90,13 @@ export function App() {
         )}
       </main>
 
-      <footer className="py-3 text-center text-xs text-slate-500 border-t border-slate-200 bg-white">
-        Traz a Escada • Vigilância em Saúde Ambiental • Carmo - RJ
+      <footer className="py-4 px-4 text-center text-xs text-slate-500 border-t border-slate-200 bg-white space-y-1">
+        <p className="font-semibold text-slate-700">
+          Programa Municipal de Combate às Endemias • Carmo - RJ
+        </p>
+        <p className="text-slate-500">
+          Desenvolvido por <span className="font-bold text-amber-700">@AlmirLK</span>
+        </p>
       </footer>
     </div>
   );

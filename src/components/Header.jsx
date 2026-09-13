@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { ShieldCheck, Truck, User } from 'lucide-react';
 
 export function Header({ activeTab, setActiveTab, countPendentes }) {
@@ -13,9 +13,9 @@ export function Header({ activeTab, setActiveTab, countPendentes }) {
             <h1 className="text-lg font-bold tracking-tight text-slate-900 leading-tight">
               Traz a Escada
             </h1>
-            <p className="text-xs text-amber-700 font-semibold flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
-              ACE Dengue • Carmo - RJ
+            <p className="text-[11px] sm:text-xs text-amber-700 font-semibold flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>Programa Municipal de Combate às Endemias • Carmo - RJ</span>
             </p>
           </div>
         </div>
