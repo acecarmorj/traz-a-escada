@@ -8,12 +8,28 @@ import { resolveAddressFromGps } from '../../lib/geoDetection';
 import { MapaGrandeAgente } from '../../maps/MapaGrandeAgente';
 import { playSuccessSound } from '../../lib/soundAlert';
 
-export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido, driverPos }) {
+export function SolicitarEscadaScreen({ 
+  pedidos, 
+  onCriarPedido, 
+  onConcluirPedido, 
+  onCancelarPedido,
+  driverPos 
+}) {
   // 1. Identificação do Agente
   const [nomeAgente, setNomeAgente] = useState(() => localStorage.getItem('escada_agente_nome') || '');
   const [nomeMorador, setNomeMorador] = useState('');
   const [referencia, setReferencia] = useState('');
   const [mostrandoRef, setMostrandoRef] = useState(false);
+
+  // Controle de pedido fechado/dispensado localmente para permitir novas solicitações
+  const [pedidoDispensadoId, setPedidoDispensadoId] = useState(
+    () => localStorage.getItem('escada_pedido_fechado_id') || ''
+  );
+
+  const dispensarPedido = (id) => {
+    setPedidoDispensadoId(id);
+    localStorage.setItem('escada_pedido_fechado_id', id);
+  };
 
   // 2. Endereço e Território Automáticos por GPS de Carmo
   const [localizacao, setLocalizacao] = useState({
@@ -30,7 +46,6 @@ export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido
 
   const [gpsStatus, setGpsStatus] = useState('buscando'); // 'buscando' | 'pronto' | 'erro'
   const [enviando, setEnviando] = useState(false);
-  const [cardExpandido, setCardExpandido] = useState(true);
 
   const handleAgenteChange = (val) => {
     setNomeAgente(val);
@@ -78,14 +93,21 @@ export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido
     capturarLocalizacao();
   }, []);
 
-  // Busca pedido mais recente deste agente
-  const pedidoRecente = (pedidos || []).find(
+  // 1. Pedido Ativo em Andamento (solicitado ou a_caminho)
+  const pedidoAtivo = (pedidos || []).find(
     (p) => p.agente_nome && nomeAgente && 
-           p.agente_nome.trim().toLowerCase() === nomeAgente.trim().toLowerCase()
+           p.agente_nome.trim().toLowerCase() === nomeAgente.trim().toLowerCase() &&
+           (p.status === 'solicitado' || p.status === 'a_caminho') &&
+           p.id !== pedidoDispensadoId
   );
 
-  const isPedidoAtivo = pedidoRecente && pedidoRecente.status !== 'cancelado';
-  const isConcluido = pedidoRecente && (pedidoRecente.status === 'concluido' || pedidoRecente.status === 'entregue');
+  // 2. Pedido Concluído (aguardando visualização do resultado pelo agente)
+  const pedidoConcluido = !pedidoAtivo ? (pedidos || []).find(
+    (p) => p.agente_nome && nomeAgente && 
+           p.agente_nome.trim().toLowerCase() === nomeAgente.trim().toLowerCase() &&
+           (p.status === 'concluido' || p.status === 'entregue') &&
+           p.id !== pedidoDispensadoId
+  ) : null;
 
   const handleSolicitar = async (e) => {
     e.preventDefault();
@@ -100,7 +122,7 @@ export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido
 
     setEnviando(true);
     try {
-      await onCriarPedido({
+      const novo = await onCriarPedido({
         agente_nome: nomeAgente.trim(),
         morador_nome: nomeMorador.trim(),
         rua: localizacao.rua,
@@ -116,6 +138,9 @@ export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido
       playSuccessSound();
       setNomeMorador('');
       setReferencia('');
+      // Limpa qualquer dispensa anterior para focar no novo pedido
+      setPedidoDispensadoId('');
+      localStorage.removeItem('escada_pedido_fechado_id');
     } catch (err) {
       alert('Não foi possível registrar o pedido.');
     } finally {
@@ -123,11 +148,23 @@ export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido
     }
   };
 
-  const handleFecharChamado = async (id) => {
-    if (window.confirm('Deseja fechar esta ordem de apoio?')) {
-      await onConcluirPedido(id);
+  // Cancela ou fecha ordem de apoio ativa
+  const handleCancelarAtivo = async (id) => {
+    if (window.confirm('Deseja cancelar esta solicitação de escada?')) {
+      if (onCancelarPedido) {
+        await onCancelarPedido(id);
+      } else {
+        await onConcluirPedido(id);
+      }
+      dispensarPedido(id);
       playSuccessSound();
     }
+  };
+
+  // Fecha o card do chamado concluído para iniciar o próximo
+  const handleFecharConcluido = (id) => {
+    dispensarPedido(id);
+    playSuccessSound();
   };
 
   return (
@@ -138,7 +175,7 @@ export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido
           userPos={localizacao}
           microarea={localizacao.microarea}
           quarteirao={localizacao.quarteirao}
-          pedidoAtivo={isPedidoAtivo && !isConcluido ? pedidoRecente : null}
+          pedidoAtivo={pedidoAtivo}
           driverPos={driverPos}
         />
       </div>
@@ -167,24 +204,24 @@ export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido
       <div className="absolute left-0 right-0 bottom-0 z-30 p-3 sm:p-4 max-w-md mx-auto w-full pointer-events-none">
         <div className="bg-white/98 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200 p-3.5 space-y-3 pointer-events-auto max-h-[75dvh] overflow-y-auto">
           
-          {/* CASO A: POSSUI PEDIDO ATIVO (OU RECÉM CONCLUÍDO) */}
-          {isPedidoAtivo ? (
+          {/* CASO 1: PEDIDO ATIVO EM ANDAMENTO */}
+          {pedidoAtivo ? (
             <div className="space-y-2.5">
-              {/* Topo do Card com Botão Fechar */}
+              {/* Topo do Card com Botão Fechar / Cancelar */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                 <div className="flex items-center gap-1.5">
-                  <span className={`w-2.5 h-2.5 rounded-full ${isConcluido ? 'bg-emerald-600' : 'bg-blue-600 animate-pulse'}`} />
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse" />
                   <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
-                    {isConcluido ? 'Chamado Concluído' : 'Ordem de Apoio em Aberto'}
+                    Ordem de Apoio em Aberto
                   </span>
                 </div>
 
-                {/* BOTÃO FECHAR SOLICITADO */}
+                {/* BOTÃO FECHAR / CANCELAR */}
                 <button
                   type="button"
-                  onClick={() => handleFecharChamado(pedidoRecente.id)}
+                  onClick={() => handleCancelarAtivo(pedidoAtivo.id)}
                   className="flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors"
-                  title="Fechar este chamado"
+                  title="Fechar ou cancelar esta solicitação"
                 >
                   <X className="w-3.5 h-3.5" />
                   <span>Fechar</span>
@@ -194,7 +231,7 @@ export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido
               {/* 3 ETAPAS DE STATUS CONFORME PEDIDO */}
               <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] font-bold uppercase">
                 <div className={`py-2 px-1 rounded-lg border flex flex-col items-center justify-center min-h-[46px] ${
-                  pedidoRecente.status === 'solicitado'
+                  pedidoAtivo.status === 'solicitado'
                     ? 'bg-amber-100 text-amber-950 border-amber-400 ring-2 ring-amber-300 font-black'
                     : 'bg-slate-50 text-slate-400 border-slate-200'
                 }`}>
@@ -203,7 +240,7 @@ export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido
                 </div>
 
                 <div className={`py-2 px-1 rounded-lg border flex flex-col items-center justify-center min-h-[46px] ${
-                  pedidoRecente.status === 'a_caminho'
+                  pedidoAtivo.status === 'a_caminho'
                     ? 'bg-blue-100 text-blue-950 border-blue-400 ring-2 ring-blue-300 font-black'
                     : 'bg-slate-50 text-slate-400 border-slate-200'
                 }`}>
@@ -211,67 +248,97 @@ export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido
                   <span className="leading-tight">Chegada</span>
                 </div>
 
-                <div className={`py-2 px-1 rounded-lg border flex flex-col items-center justify-center min-h-[46px] ${
-                  isConcluido
-                    ? 'bg-emerald-100 text-emerald-950 border-emerald-400 ring-2 ring-emerald-300 font-black'
-                    : 'bg-slate-50 text-slate-400 border-slate-200'
-                }`}>
+                <div className="py-2 px-1 rounded-lg border flex flex-col items-center justify-center min-h-[46px] bg-slate-50 text-slate-400 border-slate-200">
                   <span className="leading-tight">3. Concluído</span>
-                  <span className="leading-tight">{isConcluido ? '✓' : ''}</span>
                 </div>
               </div>
 
               {/* Dados do Imóvel */}
               <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs space-y-1 text-slate-800">
-                <div><strong>Morador:</strong> {pedidoRecente.morador_nome}</div>
-                <div><strong>Logradouro:</strong> {pedidoRecente.rua} {pedidoRecente.numero && `nº ${pedidoRecente.numero}`}</div>
+                <div><strong>Morador:</strong> {pedidoAtivo.morador_nome}</div>
+                <div><strong>Logradouro:</strong> {pedidoAtivo.rua} {pedidoAtivo.numero && `nº ${pedidoAtivo.numero}`}</div>
                 <div className="text-[11px] text-slate-600">
-                  <strong>Território:</strong> {pedidoRecente.quarteirao} • {pedidoRecente.microarea}
+                  <strong>Território:</strong> {pedidoAtivo.quarteirao} • {pedidoAtivo.microarea}
                 </div>
               </div>
 
-              {/* EXIBIÇÃO DO RESULTADO DA VISITA (SE CONCLUÍDO) */}
-              {isConcluido && (
-                <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-3 space-y-1">
-                  <div className="text-[11px] font-bold text-emerald-900 uppercase tracking-wide flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-                    <span>Resultado da Vistoria na Caixa d'Água</span>
-                  </div>
-                  <div className="text-xs font-extrabold text-emerald-950">
-                    {pedidoRecente.resultado_visita || 'Vistoria Concluída com Sucesso'}
-                  </div>
-                  {pedidoRecente.observacao_desfecho && (
-                    <div className="text-[11px] text-emerald-800 bg-white/70 p-2 rounded border border-emerald-200">
-                      <strong>Obs:</strong> {pedidoRecente.observacao_desfecho}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Botões de Ação */}
-              <div className="flex gap-2 pt-1">
-                {isConcluido ? (
-                  <button
-                    type="button"
-                    onClick={() => handleFecharChamado(pedidoRecente.id)}
-                    className="w-full h-12 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2"
-                  >
-                    <span>Iniciar Nova Solicitação</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleFecharChamado(pedidoRecente.id)}
-                    className="w-full h-12 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2"
-                  >
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    <span>Concluir e Liberar Escada</span>
-                  </button>
-                )}
+              {/* Mensagem de status */}
+              <div className={`text-xs p-2.5 rounded-xl font-bold text-center border ${
+                pedidoAtivo.status === 'a_caminho'
+                  ? 'bg-blue-50 text-blue-900 border-blue-200'
+                  : 'bg-amber-50 text-amber-900 border-amber-200'
+              }`}>
+                {pedidoAtivo.status === 'a_caminho'
+                  ? '🚚 Veículo de apoio da escada em trânsito até o seu imóvel.'
+                  : '⏳ Pedido registrado. Aguardando atendimento pelo veículo da escada.'}
               </div>
             </div>
+          ) : pedidoConcluido ? (
+            /* CASO 2: CHAMADO CONCLUÍDO COM RESULTADO DA VISTORIA */
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span className="text-xs font-black text-slate-900 uppercase tracking-wide">
+                    Vistoria Concluída
+                  </span>
+                </div>
+
+                {/* BOTÃO FECHAR */}
+                <button
+                  type="button"
+                  onClick={() => handleFecharConcluido(pedidoConcluido.id)}
+                  className="flex items-center gap-1 text-[11px] font-bold text-slate-500 hover:text-slate-800 px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors"
+                  title="Fechar e iniciar nova solicitação"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span>Fechar</span>
+                </button>
+              </div>
+
+              {/* 3 ETAPAS DE STATUS - COM A 3ª CONCLUÍDA */}
+              <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] font-bold uppercase">
+                <div className="py-2 px-1 rounded-lg border flex flex-col items-center justify-center min-h-[46px] bg-slate-50 text-slate-400 border-slate-200">
+                  <span className="leading-tight">1. Atendido</span>
+                </div>
+                <div className="py-2 px-1 rounded-lg border flex flex-col items-center justify-center min-h-[46px] bg-slate-50 text-slate-400 border-slate-200">
+                  <span className="leading-tight">2. Entregue</span>
+                </div>
+                <div className="py-2 px-1 rounded-lg border flex flex-col items-center justify-center min-h-[46px] bg-emerald-100 text-emerald-950 border-emerald-400 ring-2 ring-emerald-300 font-black">
+                  <span className="leading-tight">3. Concluído</span>
+                  <span className="leading-tight">✓</span>
+                </div>
+              </div>
+
+              {/* CARD OFICIAL COM O RESULTADO DA VISTORIA */}
+              <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-3 space-y-1.5">
+                <div className="text-[11px] font-bold text-emerald-900 uppercase tracking-wide">
+                  Resultado Oficial da Vistoria na Caixa d'Água:
+                </div>
+                <div className="text-xs font-black text-emerald-950 bg-white p-2 rounded-lg border border-emerald-200">
+                  {pedidoConcluido.resultado_visita || 'Vistoria Concluída sem Pendências'}
+                </div>
+                {pedidoConcluido.observacao_desfecho && (
+                  <div className="text-[11px] text-emerald-900 bg-white/70 p-2 rounded-lg border border-emerald-200">
+                    <strong>Obs:</strong> {pedidoConcluido.observacao_desfecho}
+                  </div>
+                )}
+                <div className="text-[10px] text-emerald-700 pt-0.5">
+                  Imóvel: {pedidoConcluido.morador_nome} • {pedidoConcluido.quarteirao}
+                </div>
+              </div>
+
+              {/* BOTÃO PARA INICIAR NOVA VISTORIA */}
+              <button
+                type="button"
+                onClick={() => handleFecharConcluido(pedidoConcluido.id)}
+                className="w-full h-12 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white font-black rounded-xl text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-2 border border-slate-800 active:scale-[0.98]"
+              >
+                <span>FECHAR E INICIAR NOVA SOLICITAÇÃO</span>
+              </button>
+            </div>
           ) : (
-            /* CASO B: FORMULÁRIO OPERACIONAL ESTILO MOTOJA */
+            /* CASO 3: FORMULÁRIO LIMPO PARA NOVA SOLICITAÇÃO */
             <form onSubmit={handleSolicitar} className="space-y-3">
               {/* Cabeçalho do Card */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">

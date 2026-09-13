@@ -81,6 +81,7 @@ export function App() {
             driverPos={driverPos}
             onCriarPedido={handleCriarPedido}
             onConcluirPedido={(id) => handleMudarStatus(id, 'concluido')}
+            onCancelarPedido={(id) => handleMudarStatus(id, 'cancelado')}
           />
         ) : (
           <PainelCentralScreen
