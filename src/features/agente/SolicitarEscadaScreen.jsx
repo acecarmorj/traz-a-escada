@@ -21,14 +21,18 @@ export function SolicitarEscadaScreen({
   const [referencia, setReferencia] = useState('');
   const [mostrandoRef, setMostrandoRef] = useState(false);
 
-  // Controle de pedido fechado/dispensado localmente para permitir novas solicitações
-  const [pedidoDispensadoId, setPedidoDispensadoId] = useState(
-    () => localStorage.getItem('escada_pedido_fechado_id') || ''
+  // Controle definitivo de fechamento de chamado concluído
+  const [ignorarConcluido, setIgnorarConcluido] = useState(false);
+  const [ultimoDispensadoAt, setUltimoDispensadoAt] = useState(
+    () => Number(localStorage.getItem('escada_dispensado_timestamp') || '0')
   );
 
-  const dispensarPedido = (id) => {
-    setPedidoDispensadoId(id);
-    localStorage.setItem('escada_pedido_fechado_id', id);
+  const dispensarConcluido = () => {
+    setIgnorarConcluido(true);
+    const now = Date.now();
+    setUltimoDispensadoAt(now);
+    localStorage.setItem('escada_dispensado_timestamp', String(now));
+    playSuccessSound();
   };
 
   // 2. Endereço e Território Automáticos por GPS de Carmo
@@ -97,17 +101,18 @@ export function SolicitarEscadaScreen({
   const pedidoAtivo = (pedidos || []).find(
     (p) => p.agente_nome && nomeAgente && 
            p.agente_nome.trim().toLowerCase() === nomeAgente.trim().toLowerCase() &&
-           (p.status === 'solicitado' || p.status === 'a_caminho') &&
-           p.id !== pedidoDispensadoId
+           (p.status === 'solicitado' || p.status === 'a_caminho')
   );
 
   // 2. Pedido Concluído (aguardando visualização do resultado pelo agente)
-  const pedidoConcluido = !pedidoAtivo ? (pedidos || []).find(
-    (p) => p.agente_nome && nomeAgente && 
-           p.agente_nome.trim().toLowerCase() === nomeAgente.trim().toLowerCase() &&
-           (p.status === 'concluido' || p.status === 'entregue') &&
-           p.id !== pedidoDispensadoId
-  ) : null;
+  const pedidoConcluido = (!ignorarConcluido && !pedidoAtivo) ? (pedidos || []).find((p) => {
+    if (!p.agente_nome || !nomeAgente) return false;
+    if (p.agente_nome.trim().toLowerCase() !== nomeAgente.trim().toLowerCase()) return false;
+    if (p.status !== 'concluido' && p.status !== 'entregue') return false;
+    const upd = p.updated_at ? new Date(p.updated_at).getTime() : 0;
+    if (upd <= ultimoDispensadoAt) return false;
+    return true;
+  }) : null;
 
   const handleSolicitar = async (e) => {
     e.preventDefault();
@@ -138,9 +143,7 @@ export function SolicitarEscadaScreen({
       playSuccessSound();
       setNomeMorador('');
       setReferencia('');
-      // Limpa qualquer dispensa anterior para focar no novo pedido
-      setPedidoDispensadoId('');
-      localStorage.removeItem('escada_pedido_fechado_id');
+      setIgnorarConcluido(false);
     } catch (err) {
       alert('Não foi possível registrar o pedido.');
     } finally {
@@ -155,14 +158,12 @@ export function SolicitarEscadaScreen({
     } else if (onConcluirPedido) {
       await onConcluirPedido(id);
     }
-    dispensarPedido(id);
-    playSuccessSound();
+    dispensarConcluido();
   };
 
   // Fecha o card do chamado concluído para iniciar o próximo
-  const handleFecharConcluido = (id) => {
-    dispensarPedido(id);
-    playSuccessSound();
+  const handleFecharConcluido = () => {
+    dispensarConcluido();
   };
 
   return (

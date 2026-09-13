@@ -181,8 +181,24 @@ export function PainelCentralScreen({ pedidos, onMudarStatus, driverPos }) {
           <span>{online ? 'ONLINE' : 'OFFLINE'}</span>
         </button>
 
-        {/* CONTROLES DE ALARME E 2º PLANO */}
-        <div className="flex items-center gap-1.5 pointer-events-auto">
+        {/* CONTROLES DE ALARME E 2º PLANO COM BOTÃO SILENCIAR EXPLÍCITO */}
+        <div className="flex items-center gap-2 pointer-events-auto">
+          {/* BOTÃO SILENCIAR GRANDE E VISÍVEL */}
+          <button
+            type="button"
+            onClick={toggleMute}
+            className={`px-3 py-1.5 rounded-full border shadow-sm backdrop-blur-md flex items-center gap-1.5 text-xs font-black transition-transform active:scale-95 ${
+              somSilenciado
+                ? 'bg-rose-50 text-rose-700 border-rose-300'
+                : 'bg-white/95 text-slate-900 border-slate-300'
+            }`}
+            title={somSilenciado ? 'Ativar som do alarme' : 'Silenciar som do alarme'}
+          >
+            {somSilenciado ? <VolumeX className="w-4 h-4 text-rose-600" /> : <Volume2 className="w-4 h-4 text-emerald-600" />}
+            <span>{somSilenciado ? 'Silenciado' : 'Silenciar'}</span>
+          </button>
+
+          {/* BOTÃO 2º PLANO */}
           <button
             type="button"
             onClick={ativarSegundoPlanoManual}
@@ -195,36 +211,27 @@ export function PainelCentralScreen({ pedidos, onMudarStatus, driverPos }) {
           >
             <Bell className="w-3.5 h-3.5" />
           </button>
-
-          <button
-            type="button"
-            onClick={toggleMute}
-            className={`p-2 rounded-full border shadow-sm backdrop-blur-md ${
-              somSilenciado
-                ? 'bg-slate-100 text-slate-400 border-slate-300'
-                : 'bg-white/90 text-emerald-800 border-emerald-300'
-            }`}
-            title={somSilenciado ? 'Som silenciado' : 'Som ativo'}
-          >
-            {somSilenciado ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-          </button>
         </div>
       </header>
 
       {/* 3. ALERTA DE CHAMADOS PENDENTES (REPETE A CADA 1 MINUTO) */}
       {online && pendentes.length > 0 && (
-        <div className="absolute top-12 left-3 right-3 z-20 pointer-events-none">
-          <div className="bg-amber-500 text-slate-950 px-3 py-1.5 rounded-xl shadow-lg border border-amber-600 flex items-center justify-between pointer-events-auto">
-            <div className="flex items-center gap-2 text-xs font-black uppercase">
+        <div className="absolute top-14 left-3 right-3 z-20 pointer-events-none">
+          <div className="bg-amber-500 text-slate-950 px-3 py-2 rounded-xl shadow-lg border border-amber-600 flex items-center justify-between gap-2 pointer-events-auto">
+            <div className="flex items-center gap-2 text-xs font-black uppercase truncate">
               <BellRing className="w-4 h-4 animate-bounce shrink-0" />
-              <span>{pendentes.length} {pendentes.length === 1 ? 'Chamado Aguardando Despacho' : 'Chamados Aguardando Despacho'}</span>
+              <span className="truncate">{pendentes.length} {pendentes.length === 1 ? 'Chamado Aguardando' : 'Chamados Aguardando'}</span>
             </div>
             <button
               type="button"
               onClick={toggleMute}
-              className="px-2 py-0.5 bg-slate-950 text-white rounded text-[10px] font-bold"
+              className={`px-3 py-1 rounded-lg text-xs font-black shrink-0 transition-all active:scale-95 shadow-xs ${
+                somSilenciado 
+                  ? 'bg-slate-900 text-emerald-400' 
+                  : 'bg-slate-950 text-white hover:bg-slate-800'
+              }`}
             >
-              {somSilenciado ? 'Som On' : 'Mudo'}
+              {somSilenciado ? 'Ativar Som' : 'Silenciar Alarme'}
             </button>
           </div>
         </div>

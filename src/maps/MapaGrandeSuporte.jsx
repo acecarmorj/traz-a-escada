@@ -267,28 +267,14 @@ export function MapaGrandeSuporte({
     <div className="w-full h-full relative overflow-hidden bg-slate-200">
       <div ref={mapContainerRef} className="w-full h-full" />
 
-      {/* Botões Flutuantes (Centralizar + Satélite) */}
+      {/* Botões Flutuantes (Centralizar + Satélite) posicionados com folga abaixo do header e do alerta */}
       <MapControlButtons
         onRecenter={handleRecenter}
         satellite={satellite}
         onToggleSatellite={() => setSatellite((prev) => !prev)}
-        top={12}
+        top={118}
         right={12}
       />
-
-      {/* Badge Flutuante de Rota no Topo */}
-      {etaInfo && (
-        <div className="absolute top-3 left-3 z-[800] pointer-events-none max-w-[calc(100%-80px)]">
-          <div className="bg-slate-900/90 text-white backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-700 shadow-md flex items-center gap-2 text-[11px] font-semibold">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse shrink-0" />
-            <span className="truncate">
-              {etaInfo.arrived
-                ? 'Chegou ao destino!'
-                : `Rota ativa • ~${etaInfo.minutes} min (${etaInfo.km.toFixed(1)} km)`}
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

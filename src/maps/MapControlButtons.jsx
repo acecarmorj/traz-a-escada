@@ -4,7 +4,7 @@ import { LocateFixed, Satellite } from 'lucide-react';
 /**
  * Botões flutuantes para controle de mapa adaptados do MOTOJAGEMINI.
  */
-export function MapControlButtons({ onRecenter, satellite, onToggleSatellite, top = 14, right = 14 }) {
+export function MapControlButtons({ onRecenter, satellite, onToggleSatellite, top = 64, right = 12 }) {
   const btnStyle = (active) => ({
     width: 44,
     height: 44,

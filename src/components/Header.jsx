@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, Truck, UserCheck } from 'lucide-react';
+import { Shield, Car, UserCheck } from 'lucide-react';
 
 /**
  * Header institucional compacto otimizado para celulares estilo MOTOJAGEMINI.
@@ -47,7 +47,7 @@ export function Header({ activeTab, setActiveTab, countPendentes }) {
                 : 'text-slate-300 hover:text-white'
             }`}
           >
-            <Truck className="w-3.5 h-3.5" />
+            <Car className="w-3.5 h-3.5 text-amber-400" />
             <span>Escada</span>
             {countPendentes > 0 && (
               <span className="ml-1 px-1.5 py-0.2 bg-amber-500 text-slate-950 rounded-full text-[10px] font-black animate-pulse">

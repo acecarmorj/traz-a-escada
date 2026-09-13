@@ -245,34 +245,24 @@ export function MapaGrandeAgente({
     <div className="w-full h-full relative overflow-hidden bg-slate-200">
       <div ref={mapContainerRef} className="w-full h-full" />
 
-      {/* Botões Flutuantes (Centralizar + Satélite) */}
+      {/* Botões Flutuantes (Centralizar + Satélite) posicionados abaixo do header */}
       <MapControlButtons
         onRecenter={handleRecenter}
         satellite={satellite}
         onToggleSatellite={() => setSatellite((prev) => !prev)}
-        top={12}
+        top={64}
         right={12}
       />
 
-      {/* Badge Flutuante de Status do Pedido no Topo */}
-      {pedidoAtivo && (
-        <div className="absolute top-3 left-3 z-[800] pointer-events-none max-w-[calc(100%-80px)]">
+      {/* Badge Flutuante de Rota no Topo (abaixo do header esquerdo, apenas quando a caminho) */}
+      {pedidoAtivo && pedidoAtivo.status === 'a_caminho' && etaInfo && (
+        <div className="absolute top-14 left-3 z-[800] pointer-events-none max-w-[calc(100%-80px)]">
           <div className="bg-slate-900/90 text-white backdrop-blur-md px-3 py-1.5 rounded-full border border-slate-700 shadow-md flex items-center gap-2 text-[11px] font-semibold">
-            <span
-              className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                pedidoAtivo.status === 'a_caminho'
-                  ? 'bg-blue-400 animate-pulse'
-                  : 'bg-amber-400 animate-ping'
-              }`}
-            />
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse shrink-0" />
             <span className="truncate">
-              {pedidoAtivo.status === 'a_caminho'
-                ? etaInfo?.arrived
-                  ? 'Escada no local!'
-                  : etaInfo
-                  ? `Escada a caminho • ~${etaInfo.minutes} min (${etaInfo.km.toFixed(1)} km)`
-                  : 'Escada a caminho do imóvel'
-                : 'Aguardando atendimento do suporte'}
+              {etaInfo.arrived
+                ? 'Escada no local!'
+                : `Escada a caminho • ~${etaInfo.minutes} min (${etaInfo.km.toFixed(1)} km)`}
             </span>
           </div>
         </div>
