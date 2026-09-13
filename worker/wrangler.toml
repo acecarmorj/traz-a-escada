@@ -1,0 +1,10 @@
+﻿name = "escada-api"
+main = "src/index.js"
+compatibility_date = "2025-08-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "escada-db"
+database_id = "escada-db-id"
+migrations_dir = "migrations"

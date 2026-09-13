@@ -1,0 +1,80 @@
+﻿==============================================================================
+PROJETO: TRAZ A ESCADA (ACE DENGUE - CARMO RJ)
+ARQUIVO DE ALINHAMENTO ENTRE IAs (GEMINI & CLAUDE)
+DATA DE INÍCIO: 13/09/2026
+AUTOR INICIAL: GEMINI (via Antigravity)
+STATUS: PLANEJAMENTO E ESTRUTURAÇÃO INICIAL
+==============================================================================
+
+1. CONTEXTO DO USUÁRIO E DO PROBLEMA
+------------------------------------------------------------------------------
+O usuário Almir e sua equipe atuam no combate às endemias (Dengue, Zika, Chikungunya)
+no município de Carmo - RJ.
+Durante as vistorias diárias nos imóveis (PE - Pontos Estratégicos, residências, comércios),
+os Agentes de Combate a Endemias (ACE) frequentemente precisam subir em lajes e telhados
+para inspecionar caixas d'água elevadas com suspeita de focos ou focos ativos do Aedes aegypti.
+Porém, o agente de campo muitas vezes não está carregando a escada ou precisa que o apoio/carro
+ou a equipe traga a escada até o local da vistoria naquele momento.
+
+2. REQUISITOS PRINCIPAIS
+------------------------------------------------------------------------------
+A) APP DO AGENTE (SOLICITANTE - CAMPO):
+   - Extremamente simples, com pouquíssimos toques (apenas nome e 1 botão principal).
+   - Tela de alto contraste (fácil leitura sob sol forte).
+   - Ao abrir, captura o GPS e cruza com a malha territorial oficial de Carmo (polígonos
+     extraídos do ACE-FINAL, localizados em `data/carmo-territorios-data.js`).
+   - Identifica automaticamente e mostra:
+     * Microárea (ex: Centro, Jardim Centenário, Progresso, Botafogo, etc.)
+     * Quarteirão (ex: Q-01, Q-05, Q-12)
+     * Precisão do GPS (metros)
+   - Campo opcional de referência (ex: "Sobrado azul, caixa d'água no fundo").
+   - Botão grande: [ SOLICITAR ESCADA AGORA ].
+   - Feedback em tempo real: status do chamado ("Aguardando", "A caminho", "Entregue").
+
+B) APP DA CENTRAL / VEÍCULO / SUPERVISOR (RECEBEDOR):
+   - Alerta sonoro alto e claro (chime via Web Audio) toda vez que entra um pedido.
+   - Lista visual dos pedidos em espera com tempo decorrido ("há 2 min").
+   - MAPA INTERATIVO (Leaflet) com:
+     * Ponto exato do agente solicitante.
+     * Desenho dos polígonos dos quarteirões e microáreas de Carmo ao redor.
+   - Botão rápido: "Abrir Rota no Google Maps" / "Abrir no Waze" -> deep link direto
+     com as coordenadas lat/lng do agente para navegação curva a curva no trânsito.
+   - Botões de mudança de status:
+     * [ A Caminho ]
+     * [ Entregue ]
+     * [ Finalizado / Escada Recolhida ]
+
+3. LIÇÕES APRENDIDAS COM OS OUTROS PROJETOS DO USUÁRIO
+------------------------------------------------------------------------------
+Analisamos:
+- `C:\Users\Almir LK\Desktop\MOTOJAGEMINI` e `D:\MOTOJA2IA`:
+  * Sistema de despacho em tempo real para moto-táxi em Carmo.
+  * Stack: React 19 + Vite + Tailwind + Leaflet + Cloudflare Worker + D1 (SQLite).
+  * Excelente aproveitamento de sons de notificação, deep-link para mapas e UX mobile.
+- `D:\ALL\ACE-FINAL` e `D:\ALL\MAPAS`:
+  * Contém a base territorial de Carmo (`carmo-territorios-data.js` e `ruas-carmo-data.js`).
+  * Já copiamos esses dois arquivos para `D:\ESCADA\data\`.
+  * Os polígonos contêm arrays de coordenadas [latitude, longitude] de todos os quarteirões
+    de Carmo.
+
+4. ARQUITETURA TÉCNICA PROPOSTA PARA `D:\ESCADA`
+------------------------------------------------------------------------------
+- Frontend: Single Page Application (SPA) em Vite + React 19 com Tailwind CSS e Leaflet.
+- PWA: Instalável na tela inicial do Android/iOS (com `manifest.json` e Service Worker).
+- Backend: Cloudflare Worker com Cloudflare D1 (SQLite), permitindo persistência leve
+  e sincronização instantânea com custo zero na Cloudflare.
+- Fallback Offline/Mock Local: Para desenvolvimento e teste imediato, o app suporta
+  modo simulado (BroadcastChannel / LocalStorage) antes mesmo do deploy na Cloudflare.
+
+5. PRÓXIMAS ETAPAS PLANEJADAS
+------------------------------------------------------------------------------
+[ETAPA 1] Configuração do ambiente em `D:\ESCADA` (package.json, vite.config.js, index.html).
+[ETAPA 2] Implementação da biblioteca de geolocalização e cruzamento com os polígonos
+          (`src/lib/geoDetection.js`).
+[ETAPA 3] Interface do Agente (Solicitação rápida com 1 toque + detecção de quarteirão).
+[ETAPA 4] Interface da Central/Supervisor (Lista com status + Alerta sonoro + Mapa Leaflet).
+[ETAPA 5] Backend Cloudflare Worker + D1 (rotas REST simples para pedidos).
+[ETAPA 6] Testes integrados e deploy no Cloudflare Pages e Worker.
+
+CURRENT TURN: GEMINI APRESENTANDO O PLANO AO USUÁRIO ALMIR E AGUARDANDO APROVAÇÃO
+==============================================================================
