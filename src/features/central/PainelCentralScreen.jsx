@@ -6,13 +6,12 @@ import {
   startAlarmLoop, stopAlarmLoop, setMuted, isAlarmMuted 
 } from '../../lib/soundAlert';
 import { 
-  Navigation, Clock, Volume2, VolumeX, CheckCircle, 
+  Navigation, Clock, Volume2, VolumeX, CheckCircle2, 
   Truck, MapPin, User, Home, BellRing, AlertCircle,
-  MessageSquare, Compass, CheckCheck
+  Compass, Radio, X, Check
 } from 'lucide-react';
 
 export function PainelCentralScreen({ pedidos, onMudarStatus, driverPos }) {
-  const [abaCentral, setAbaCentral] = useState('mensagens'); // 'mensagens' | 'mapa'
   const [filtro, setFiltro] = useState('ativos'); // 'ativos' | 'todos'
   const [somSilenciado, setSomSilenciado] = useState(() => isAlarmMuted());
 
@@ -20,7 +19,7 @@ export function PainelCentralScreen({ pedidos, onMudarStatus, driverPos }) {
   const aCaminho = (pedidos || []).filter(p => p.status === 'a_caminho');
   const entregues = (pedidos || []).filter(p => p.status === 'entregue');
 
-  // Controle de alarme sonoro contínuo quando há pedidos pendentes
+  // Controle do alarme sonoro
   useEffect(() => {
     if (pendentes.length > 0 && !somSilenciado) {
       startAlarmLoop();
@@ -44,213 +43,229 @@ export function PainelCentralScreen({ pedidos, onMudarStatus, driverPos }) {
     }
   };
 
+  const handleFecharOrdem = async (id) => {
+    if (window.confirm('Deseja concluir e arquivar este chamado?')) {
+      await onMudarStatus(id, 'concluido');
+      playSuccessSound();
+      stopAlarmLoop();
+    }
+  };
+
   const pedidosFiltrados = (pedidos || []).filter(p => {
     if (filtro === 'ativos') return p.status !== 'concluido' && p.status !== 'cancelado';
     return true;
   });
 
   return (
-    <div className="max-w-2xl mx-auto space-y-3 pb-8">
-      {/* 1. ALERTA VISUAL E SONORO DE PEDIDO PENDENTE (ESTILO WHATSAPP) */}
+    <div className="max-w-md mx-auto space-y-3 pb-12 font-sans">
+      {/* 1. ALERTA INSTITUCIONAL DE CHAMADO AGUARDANDO */}
       {pendentes.length > 0 && (
-        <div className="bg-rose-600 text-white p-3.5 rounded-2xl shadow-md animate-pulse flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <BellRing className="w-5 h-5 animate-bounce shrink-0 text-white" />
+        <section className="bg-amber-500 text-slate-950 p-3 rounded-xl shadow-xs border border-amber-600 flex items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2">
+            <BellRing className="w-5 h-5 animate-bounce shrink-0" />
             <div>
-              <div className="text-xs font-black uppercase tracking-wider">
-                {pendentes.length} {pendentes.length === 1 ? 'PEDIDO DE ESCADA AGUARDANDO!' : 'PEDIDOS DE ESCADA AGUARDANDO!'}
+              <div className="text-xs font-black uppercase tracking-wide leading-tight">
+                {pendentes.length} {pendentes.length === 1 ? 'Chamado Aguardando' : 'Chamados Aguardando'}
               </div>
-              <div className="text-[11px] opacity-95">
-                Alarme tocando. Toque em "A Caminho" para atender.
+              <div className="text-[11px] font-medium text-slate-900 leading-tight">
+                Alarme sonoro ativo. Despache para atender.
               </div>
             </div>
           </div>
           <button
             type="button"
             onClick={toggleMute}
-            className="bg-white text-rose-700 px-3 py-1.5 rounded-xl text-xs font-black hover:bg-rose-50 shrink-0 shadow-xs"
+            className="px-2.5 py-1.5 bg-slate-950 text-white rounded-lg text-xs font-bold shrink-0 hover:bg-slate-800"
           >
-            {somSilenciado ? 'Ligar Som' : 'Silenciar'}
+            {somSilenciado ? 'Ativar Som' : 'Silenciar'}
           </button>
-        </div>
+        </section>
       )}
 
-      {/* 2. BARRA DE STATUS / CONTROLE WHATSAPP */}
-      <div className="bg-white p-2.5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-        {/* Alternador de Visão: Lista x Mapa */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-          <button
-            type="button"
-            onClick={() => setAbaCentral('mensagens')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              abaCentral === 'mensagens'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <MessageSquare className="w-3.5 h-3.5 text-[#128C7E]" />
-            <span>Chamados ({pedidosFiltrados.length})</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setAbaCentral('mapa')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              abaCentral === 'mapa'
-                ? 'bg-[#128C7E] text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Compass className="w-3.5 h-3.5" />
-            <span>Mapa Polígonos</span>
-          </button>
+      {/* 2. CABEÇALHO DO DESPACHO E CONTROLES */}
+      <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Truck className="w-4 h-4 text-emerald-700" />
+          <div>
+            <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wide leading-none">
+              Despacho Operacional
+            </h2>
+            <span className="text-[10px] text-slate-500">
+              {pedidosFiltrados.length} ordem(ns) no sistema
+            </span>
+          </div>
         </div>
 
-        {/* Teste de Som e Silenciador */}
         <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={toggleMute}
-            className={`p-2 rounded-xl text-xs font-bold transition-all border ${
+            className={`p-1.5 rounded-lg text-xs font-semibold border flex items-center gap-1 ${
               somSilenciado 
-                ? 'bg-rose-50 text-rose-700 border-rose-200' 
+                ? 'bg-slate-100 text-slate-500 border-slate-200' 
                 : 'bg-emerald-50 text-emerald-800 border-emerald-200'
             }`}
             title={somSilenciado ? 'Alarme Silenciado' : 'Alarme Ativo'}
           >
-            {somSilenciado ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-[#25D366]" />}
+            {somSilenciado ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            <span className="text-[10px]">{somSilenciado ? 'Mudo' : 'Som Ativo'}</span>
           </button>
         </div>
       </div>
 
-      {/* 3. VISÃO DO MAPA DE CARMO COM OS 134 POLÍGONOS */}
-      {abaCentral === 'mapa' && (
-        <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-            <span className="flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5 text-rose-600" />
-              134 Quarteirões Oficiais de Carmo
-            </span>
-            <span className="text-[11px] text-slate-500">
-              {pedidosFiltrados.length} local(is) no mapa
-            </span>
-          </div>
-          <div className="h-[360px] w-full rounded-xl overflow-hidden">
-            <MapaPedidos
-              pedidos={pedidosFiltrados}
-              driverPos={driverPos}
-              onMudarStatus={handleStatus}
-            />
+      {/* 3. MAPA OPERACIONAL EMBUTIDO NO PRÓPRIO APLICATIVO DO MOTORISTA */}
+      <section className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs space-y-1.5">
+        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700 px-0.5">
+          <span className="flex items-center gap-1">
+            <Compass className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Mapa Operacional de Carmo (134 Quarteirões)</span>
+          </span>
+          <span className="text-[10px] text-slate-500 font-normal">
+            {driverPos ? 'GPS Motorista Ativo' : 'Aguardando GPS Veículo'}
+          </span>
+        </div>
+
+        {/* CONTAINER DO MAPA OTIMIZADO PARA MOBILE */}
+        <div className="h-64 sm:h-72 w-full rounded-lg overflow-hidden border border-slate-200">
+          <MapaPedidos
+            pedidos={pedidosFiltrados}
+            driverPos={driverPos}
+            onMudarStatus={handleStatus}
+          />
+        </div>
+      </section>
+
+      {/* 4. FILA DE ORDENS DE SERVIÇO */}
+      <section className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+            Ordens de Serviço em Aberto
+          </h3>
+          <div className="flex gap-1 bg-slate-200 p-0.5 rounded text-[10px] font-semibold">
+            <button
+              onClick={() => setFiltro('ativos')}
+              className={`px-2 py-0.5 rounded ${filtro === 'ativos' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'}`}
+            >
+              Ativos ({pendentes.length + aCaminho.length + entregues.length})
+            </button>
+            <button
+              onClick={() => setFiltro('todos')}
+              className={`px-2 py-0.5 rounded ${filtro === 'todos' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-600'}`}
+            >
+              Todos ({pedidos.length})
+            </button>
           </div>
         </div>
-      )}
 
-      {/* 4. VISÃO DE CHAMADOS: BALÕES ESTILO WHATSAPP */}
-      {abaCentral === 'mensagens' && (
-        <div className="space-y-2.5">
-          {pedidosFiltrados.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 text-center border border-slate-200 text-slate-500 text-xs">
-              <span className="text-3xl block mb-2">🎉</span>
-              Nenhum pedido de escada aguardando no momento.
-            </div>
-          ) : (
-            pedidosFiltrados.map((pedido) => {
-              const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${pedido.latitude},${pedido.longitude}`;
-              const wazeUrl = `https://waze.com/ul?ll=${pedido.latitude},${pedido.longitude}&navigate=yes`;
+        {pedidosFiltrados.length === 0 ? (
+          <div className="bg-white rounded-xl p-6 text-center border border-slate-200 text-slate-500 text-xs">
+            Nenhuma ordem de serviço pendente no momento.
+          </div>
+        ) : (
+          pedidosFiltrados.map((pedido) => {
+            const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${pedido.latitude},${pedido.longitude}`;
+            const wazeUrl = `https://waze.com/ul?ll=${pedido.latitude},${pedido.longitude}&navigate=yes`;
 
-              const horaFormatada = pedido.created_at 
-                ? new Date(pedido.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-                : '';
+            const horaFormatada = pedido.created_at 
+              ? new Date(pedido.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+              : '';
 
-              const isPendente = pedido.status === 'solicitado';
+            const isPendente = pedido.status === 'solicitado';
 
-              return (
-                <div
-                  key={pedido.id}
-                  className={`bg-white rounded-2xl p-3.5 border shadow-xs space-y-2.5 transition-all ${
-                    isPendente 
-                      ? 'border-amber-400 bg-[#FFFDF5] ring-2 ring-amber-300' 
-                      : pedido.status === 'a_caminho'
-                      ? 'border-blue-300 bg-blue-50/20'
-                      : pedido.status === 'entregue'
-                      ? 'border-emerald-300 bg-emerald-50/20'
-                      : 'border-slate-200'
-                  }`}
-                >
-                  {/* Topo do Balão: Agente + Horário */}
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5 font-black text-slate-900">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#25D366]" />
-                      <span className="text-sm">{pedido.agente_nome || 'Agente'}</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-[11px] text-slate-500">
-                      <span>{horaFormatada}</span>
-                      <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" />
-                    </div>
+            return (
+              <article
+                key={pedido.id}
+                className={`bg-white rounded-xl p-3.5 border shadow-2xs space-y-2.5 transition-all ${
+                  isPendente 
+                    ? 'border-amber-400 bg-amber-50/20 ring-1 ring-amber-300' 
+                    : pedido.status === 'a_caminho'
+                    ? 'border-blue-300 bg-blue-50/20'
+                    : pedido.status === 'entregue'
+                    ? 'border-emerald-300 bg-emerald-50/20'
+                    : 'border-slate-200'
+                }`}
+              >
+                {/* Topo do Card com Botão Fechar */}
+                <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-xs text-slate-900">{pedido.agente_nome}</span>
+                    <span className="text-[10px] text-slate-400">às {horaFormatada}</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-1.5">
+                    <BadgeStatus status={pedido.status} />
+                    {/* BOTÃO FECHAR / ARQUIVAR */}
+                    <button
+                      type="button"
+                      onClick={() => handleFecharOrdem(pedido.id)}
+                      className="p-1 text-slate-400 hover:text-rose-600 rounded hover:bg-slate-100"
+                      title="Fechar e arquivar ordem"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Dados do Imóvel */}
+                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs space-y-1 text-slate-800">
+                  <div className="font-semibold text-slate-900 flex items-center gap-1">
+                    <Home className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    <span>Morador: <strong>{pedido.morador_nome || 'Não informado'}</strong></span>
                   </div>
 
-                  {/* Informações do Morador e Local */}
-                  <div className="bg-[#F0F2F5] p-2.5 rounded-xl text-xs space-y-1 text-slate-800">
-                    <div className="font-bold text-slate-900 flex items-center gap-1">
-                      <span>🏠 Morador:</span>
-                      <span className="text-sm font-black text-[#075E54]">
-                        {pedido.morador_nome || 'Não informado'}
-                      </span>
-                    </div>
-
-                    <div className="font-semibold text-slate-800 flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                      <span>{pedido.rua} {pedido.numero && `nº ${pedido.numero}`}</span>
-                    </div>
-
-                    <div className="text-[11px] font-bold text-slate-600 flex items-center gap-2 pt-0.5">
-                      <span className="bg-white px-2 py-0.5 rounded border border-slate-200">
-                        {pedido.quarteirao}
-                      </span>
-                      <span className="bg-white px-2 py-0.5 rounded border border-slate-200">
-                        Microárea: {pedido.microarea}
-                      </span>
-                    </div>
-
-                    {pedido.referencia && (
-                      <div className="text-[11px] text-slate-600 italic pt-0.5">
-                        📝 Ref: {pedido.referencia}
-                      </div>
-                    )}
+                  <div className="text-slate-700 flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    <span>{pedido.rua} {pedido.numero && `nº ${pedido.numero}`}</span>
                   </div>
 
-                  {/* Botões de Ação e Rota GPS */}
-                  <div className="flex items-center gap-2 pt-0.5">
-                    {/* Botão Google Maps */}
-                    <a
-                      href={gmapsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center flex items-center justify-center gap-1 transition-all border border-slate-200"
-                    >
-                      <Navigation className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Google Maps</span>
-                    </a>
+                  <div className="text-[11px] text-slate-600 flex items-center gap-2 pt-0.5">
+                    <span className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-medium">
+                      Quarteirão: <strong>{pedido.quarteirao}</strong>
+                    </span>
+                    <span className="bg-white px-1.5 py-0.5 rounded border border-slate-200 font-medium">
+                      Microárea: <strong>{pedido.microarea}</strong>
+                    </span>
+                  </div>
 
-                    {/* Botão Waze */}
-                    <a
-                      href={wazeUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center flex items-center justify-center gap-1 transition-all border border-slate-200"
-                    >
-                      <span className="text-xs">🚙</span>
-                      <span>Waze</span>
-                    </a>
+                  {pedido.referencia && (
+                    <div className="text-[11px] text-slate-600 pt-0.5">
+                      <strong>Ref:</strong> {pedido.referencia}
+                    </div>
+                  )}
+                </div>
 
-                    {/* Botão de Avançar Status */}
+                {/* Botões de Ação Ergonômicos para Celular */}
+                <div className="grid grid-cols-2 gap-2">
+                  <a
+                    href={gmapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-11 bg-slate-100 active:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border border-slate-300 shadow-2xs"
+                  >
+                    <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Google Maps</span>
+                  </a>
+
+                  <a
+                    href={wazeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="h-11 bg-slate-100 active:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 border border-slate-300 shadow-2xs"
+                  >
+                    <Navigation className="w-3.5 h-3.5 text-cyan-600" />
+                    <span>Waze</span>
+                  </a>
+
+                  {/* Ação Primária de Status */}
+                  <div className="col-span-2">
                     {isPendente && (
                       <button
                         type="button"
                         onClick={() => handleStatus(pedido.id, 'a_caminho')}
-                        className="flex-1 py-2 bg-[#25D366] hover:bg-[#1EBE5D] text-slate-950 font-black rounded-xl text-xs transition-all shadow-xs flex items-center justify-center gap-1"
+                        className="w-full h-11 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-all shadow-xs flex items-center justify-center gap-1.5 border border-emerald-800"
                       >
-                        <span>🚚 A Caminho</span>
+                        <Truck className="w-4 h-4" />
+                        <span>Despachar / A Caminho</span>
                       </button>
                     )}
 
@@ -258,9 +273,10 @@ export function PainelCentralScreen({ pedidos, onMudarStatus, driverPos }) {
                       <button
                         type="button"
                         onClick={() => handleStatus(pedido.id, 'entregue')}
-                        className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl text-xs transition-all shadow-xs flex items-center justify-center gap-1"
+                        className="w-full h-11 bg-blue-700 hover:bg-blue-800 active:bg-blue-900 text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-all shadow-xs flex items-center justify-center gap-1.5 border border-blue-800"
                       >
-                        <span>🪜 Entregue</span>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Confirmar Entrega</span>
                       </button>
                     )}
 
@@ -268,18 +284,19 @@ export function PainelCentralScreen({ pedidos, onMudarStatus, driverPos }) {
                       <button
                         type="button"
                         onClick={() => handleStatus(pedido.id, 'concluido')}
-                        className="flex-1 py-2 bg-[#075E54] hover:bg-[#064e46] text-white font-black rounded-xl text-xs transition-all shadow-xs flex items-center justify-center gap-1"
+                        className="w-full h-11 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white font-bold rounded-lg text-xs uppercase tracking-wider transition-all shadow-xs flex items-center justify-center gap-1.5 border border-slate-800"
                       >
-                        <span>✓ Concluir</span>
+                        <Check className="w-4 h-4 text-emerald-400" />
+                        <span>Concluir e Arquivar</span>
                       </button>
                     )}
                   </div>
                 </div>
-              );
-            })
-          )}
-        </div>
-      )}
+              </article>
+            );
+          })
+        )}
+      </section>
     </div>
   );
 }

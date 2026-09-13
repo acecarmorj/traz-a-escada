@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { getAllPolygons } from '../lib/geoDetection';
 
@@ -7,34 +7,37 @@ export function MapaPedidos({ pedidos, driverPos, onMudarStatus }) {
   const mapInstanceRef = useRef(null);
   const layersGroupRef = useRef(null);
   const polygonsGroupRef = useRef(null);
+  const routesGroupRef = useRef(null);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // Inicializa o mapa apenas uma vez
+    // Inicializa o mapa Leaflet
     if (!mapInstanceRef.current) {
       const map = L.map(mapContainerRef.current, {
         center: [-21.9325, -42.6075],
-        zoom: 14,
+        zoom: 15,
         zoomControl: true
       });
 
-      // Camada de mapa OpenStreetMap
+      // Camada padrão OpenStreetMap
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
+        attribution: '&copy; OpenStreetMap',
         maxZoom: 19
       }).addTo(map);
 
       polygonsGroupRef.current = L.layerGroup().addTo(map);
+      routesGroupRef.current = L.layerGroup().addTo(map);
       layersGroupRef.current = L.layerGroup().addTo(map);
       mapInstanceRef.current = map;
     }
 
     const map = mapInstanceRef.current;
     const polyGroup = polygonsGroupRef.current;
+    const routesGroup = routesGroupRef.current;
     const markersGroup = layersGroupRef.current;
 
-    // 1. Renderiza Polígonos de Carmo
+    // 1. Polígonos Oficiais de Carmo (134 Quarteirões)
     polyGroup.clearLayers();
     const allPolys = getAllPolygons();
     const activeQuarteiroes = new Set(
@@ -49,10 +52,10 @@ export function MapaPedidos({ pedidos, driverPos, onMudarStatus }) {
       const isActive = activeQuarteiroes.has(key) || activeQuarteiroes.has(`${poly.folder}_${poly.name}`);
 
       const leafPoly = L.polygon(poly.coordinates, {
-        color: isActive ? '#dc2626' : '#64748b',
+        color: isActive ? '#dc2626' : '#94a3b8',
         weight: isActive ? 2.5 : 1,
-        fillColor: isActive ? '#f59e0b' : '#94a3b8',
-        fillOpacity: isActive ? 0.45 : 0.08,
+        fillColor: isActive ? '#25D366' : '#cbd5e1',
+        fillOpacity: isActive ? 0.35 : 0.08,
         dashArray: isActive ? null : '3, 4'
       });
 
@@ -64,32 +67,79 @@ export function MapaPedidos({ pedidos, driverPos, onMudarStatus }) {
       leafPoly.addTo(polyGroup);
     });
 
-    // 2. Renderiza Marcadores dos Pedidos
+    // 2. Limpa e reconstrói rotas e marcadores
+    routesGroup.clearLayers();
     markersGroup.clearLayers();
 
+    const boundsPoints = [];
+
+    // Posição do Motorista / Veículo da Escada
+    if (driverPos && driverPos.latitude && driverPos.longitude) {
+      boundsPoints.push([driverPos.latitude, driverPos.longitude]);
+      const driverIcon = L.divIcon({
+        className: 'driver-marker',
+        html: `
+          <div class="relative flex flex-col items-center">
+            <div class="w-9 h-9 rounded-full bg-slate-950 border-2 border-[#25D366] flex items-center justify-center text-lg shadow-lg">
+              🚚
+            </div>
+            <span class="mt-0.5 px-1.5 py-0.5 rounded bg-slate-900 text-white text-[10px] font-bold shadow-xs">
+              Você
+            </span>
+          </div>
+        `,
+        iconSize: [36, 48],
+        iconAnchor: [18, 42]
+      });
+
+      L.marker([driverPos.latitude, driverPos.longitude], { icon: driverIcon })
+        .bindTooltip("Você (Carro da Escada)", { permanent: false })
+        .addTo(markersGroup);
+    }
+
+    // Marcadores dos Pedidos Ativos
     (pedidos || []).forEach(pedido => {
       if (pedido.status === 'concluido' || pedido.status === 'cancelado') return;
+
+      const pLat = Number(pedido.latitude);
+      const pLng = Number(pedido.longitude);
+      if (isNaN(pLat) || isNaN(pLng)) return;
+
+      boundsPoints.push([pLat, pLng]);
 
       const isCaminho = pedido.status === 'a_caminho';
       const isEntregue = pedido.status === 'entregue';
 
+      // Traça linha pontilhada se o motorista tiver GPS
+      if (driverPos && driverPos.latitude && driverPos.longitude && (pedido.status === 'solicitado' || isCaminho)) {
+        L.polyline([
+          [driverPos.latitude, driverPos.longitude],
+          [pLat, pLng]
+        ], {
+          color: isCaminho ? '#25D366' : '#f59e0b',
+          weight: 4,
+          dashArray: '6, 8',
+          opacity: 0.85
+        }).addTo(routesGroup);
+      }
+
       const iconHtml = `
         <div class="relative flex flex-col items-center">
-          <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-lg border-2 ${
+          <div class="w-10 h-10 rounded-full flex items-center justify-center text-xl shadow-xl border-2 ${
             isEntregue
-              ? 'bg-emerald-500 border-white text-white'
+              ? 'bg-blue-600 border-white text-white'
               : isCaminho
-              ? 'bg-blue-600 border-white text-white animate-bounce'
+              ? 'bg-[#25D366] border-white text-slate-950 animate-bounce'
               : 'bg-amber-500 border-slate-900 text-slate-950 pulsing-marker'
           }">
             🪜
           </div>
           <span class="mt-1 px-2 py-0.5 rounded-md text-[11px] font-black tracking-tight whitespace-nowrap shadow-md ${
             isEntregue
-              ? 'bg-emerald-700 text-white'
+              ? 'bg-blue-700 text-white'
               : isCaminho
-              ? 'bg-blue-800 text-white'
-              : 'bg-slate-900 text-amber-400'
+              ? 'bg-[#075E54] text-white'
+              : 'bg-slate-900 text-amber-300'
           }">
             ${pedido.agente_nome || 'Agente'}
           </span>
@@ -103,31 +153,38 @@ export function MapaPedidos({ pedidos, driverPos, onMudarStatus }) {
         iconAnchor: [20, 48]
       });
 
-      const marker = L.marker([pedido.latitude, pedido.longitude], { icon: customIcon });
+      const marker = L.marker([pLat, pLng], { icon: customIcon });
 
-      const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${pedido.latitude},${pedido.longitude}`;
-      const wazeUrl = `https://waze.com/ul?ll=${pedido.latitude},${pedido.longitude}&navigate=yes`;
+      const gmapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${pLat},${pLng}`;
+      const wazeUrl = `https://waze.com/ul?ll=${pLat},${pLng}&navigate=yes`;
 
       const popupContent = `
         <div class="p-2 text-slate-900 font-sans min-w-[220px]">
-          <div class="flex items-center gap-2 border-b pb-1.5 mb-2">
+          <div class="flex items-center gap-2 border-b border-slate-200 pb-1.5 mb-1.5">
             <span class="text-xl">🪜</span>
             <div>
-              <div class="font-bold text-sm">${pedido.agente_nome}</div>
+              <div class="font-bold text-sm text-slate-950">${pedido.agente_nome || 'Agente'}</div>
               <div class="text-xs text-slate-600">${pedido.microarea} • ${pedido.quarteirao}</div>
             </div>
+          </div>
+
+          <div class="text-xs font-semibold text-slate-800 mb-1">
+            🏠 Morador: <span class="font-bold text-emerald-800">${pedido.morador_nome || 'Não informado'}</span>
+          </div>
+          <div class="text-xs text-slate-600 mb-2">
+            📍 ${pedido.rua} ${pedido.numero ? `nº ${pedido.numero}` : ''}
           </div>
           
           ${pedido.referencia ? `<div class="text-xs bg-slate-100 p-1.5 rounded mb-2 text-slate-700"><strong>Ref:</strong> ${pedido.referencia}</div>` : ''}
 
           <div class="flex flex-col gap-1.5 mt-2">
             <a href="${gmapsUrl}" target="_blank" rel="noopener noreferrer" 
-               class="bg-blue-600 text-white text-center text-xs py-1.5 px-2 rounded-md font-bold hover:bg-blue-700">
-               🗺️ Abrir no Google Maps
+               class="bg-[#128C7E] text-white text-center text-xs py-1.5 px-2 rounded-lg font-bold hover:bg-[#075E54]">
+               🗺️ Rota no Google Maps
             </a>
             <a href="${wazeUrl}" target="_blank" rel="noopener noreferrer" 
-               class="bg-cyan-600 text-white text-center text-xs py-1.5 px-2 rounded-md font-bold hover:bg-cyan-700">
-               🚗 Abrir no Waze
+               class="bg-cyan-600 text-white text-center text-xs py-1.5 px-2 rounded-lg font-bold hover:bg-cyan-700">
+               🚗 Rota no Waze
             </a>
           </div>
         </div>
@@ -137,27 +194,17 @@ export function MapaPedidos({ pedidos, driverPos, onMudarStatus }) {
       marker.addTo(markersGroup);
     });
 
-    // 3. Marcador da Posição do Motorista / Supervisor
-    if (driverPos && driverPos.latitude && driverPos.longitude) {
-      const driverIcon = L.divIcon({
-        className: 'driver-marker',
-        html: `
-          <div class="w-8 h-8 rounded-full bg-slate-900 border-2 border-white flex items-center justify-center text-sm shadow-xl">
-            🚚
-          </div>
-        `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
-      });
-      L.marker([driverPos.latitude, driverPos.longitude], { icon: driverIcon })
-        .bindTooltip("Você (Veículo da Escada)", { permanent: false })
-        .addTo(markersGroup);
+    // 3. Ajuste inteligente do zoom para enquadrar chamados e motorista
+    if (boundsPoints.length > 1) {
+      map.fitBounds(boundsPoints, { padding: [40, 40], maxZoom: 16 });
+    } else if (boundsPoints.length === 1) {
+      map.setView(boundsPoints[0], 16);
     }
 
   }, [pedidos, driverPos]);
 
   return (
-    <div className="w-full h-80 sm:h-96 md:h-[450px] relative rounded-2xl overflow-hidden border border-slate-300 shadow-md">
+    <div className="w-full h-72 sm:h-80 md:h-96 relative rounded-2xl overflow-hidden border-2 border-emerald-600/30 shadow-sm bg-slate-100">
       <div ref={mapContainerRef} className="w-full h-full" />
     </div>
   );

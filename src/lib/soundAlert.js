@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Sintetizador Web Audio com suporte a Alarme Contínuo e Chime
  * para o painel de despacho da escada.
  * Funciona offline, sem necessidade de carregar arquivos MP3 externos.

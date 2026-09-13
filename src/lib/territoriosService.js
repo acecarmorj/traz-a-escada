@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Serviço de dados territoriais, ruas e correlação de Carmo - RJ.
  * Implementa as regras oficiais do ACE-FINAL:
  * - Uma rua pode pertencer a mais de uma microárea e mais de um quarteirão.

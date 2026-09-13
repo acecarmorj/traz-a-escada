@@ -2,20 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { 
   MapPin, Send, CheckCircle2, Clock, 
   AlertTriangle, RefreshCw, User, Home, ChevronDown, ChevronUp,
-  Check, CheckCheck, Sparkles, Navigation
+  Shield, Check, CheckCheck, Compass, Radio, X
 } from 'lucide-react';
 import { resolveAddressFromGps } from '../../lib/geoDetection';
+import { MapaAgente } from '../../maps/MapaAgente';
 import { playSuccessSound } from '../../lib/soundAlert';
 
 export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido }) {
-  // 1. Dados que o Agente preenche (apenas o essencial)
+  // 1. Identificação
   const [nomeAgente, setNomeAgente] = useState(() => localStorage.getItem('escada_agente_nome') || '');
   const [nomeMorador, setNomeMorador] = useState('');
   const [referencia, setReferencia] = useState('');
 
-  // 2. Endereço e Território 100% Automáticos via GPS
+  // 2. Endereço e Território 100% Automáticos por GPS
   const [localizacao, setLocalizacao] = useState({
-    rua: 'Detectando rua...',
+    rua: 'Detectando logradouro...',
     bairro: 'Carmo',
     microarea: 'Centro',
     quarteirao: 'Q-01',
@@ -28,15 +29,14 @@ export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido
 
   const [gpsStatus, setGpsStatus] = useState('buscando'); // 'buscando' | 'pronto' | 'erro'
   const [enviando, setEnviando] = useState(false);
-  const [mostrarEdicao, setMostrarEdicao] = useState(false);
+  const [mostrarEdicaoManual, setMostrarEdicaoManual] = useState(false);
 
-  // Salva o nome do agente no aparelho
   const handleAgenteChange = (val) => {
     setNomeAgente(val);
     localStorage.setItem('escada_agente_nome', val);
   };
 
-  // Captura e detecção contínua do GPS (estilo ACE e Ovitrampas)
+  // Captura automática de GPS (alta precisão)
   const capturarLocalizacao = () => {
     setGpsStatus('buscando');
     if (!navigator.geolocation) {
@@ -50,7 +50,7 @@ export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido
         try {
           const det = await resolveAddressFromGps(latitude, longitude);
           setLocalizacao({
-            rua: det.rua || 'Rua Central',
+            rua: det.rua || 'Rua Principal',
             bairro: det.bairro || det.microarea || 'Centro',
             microarea: det.microarea || 'Centro',
             quarteirao: det.quarteirao || 'Q-01',
@@ -69,7 +69,7 @@ export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido
         console.warn('Falha GPS:', err);
         setGpsStatus('erro');
       },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 8000 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 6000 }
     );
   };
 
@@ -77,22 +77,21 @@ export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido
     capturarLocalizacao();
   }, []);
 
-  // Verifica se há pedido ativo deste agente
+  // Verifica se o agente já possui solicitação aberta
   const pedidoAtivo = (pedidos || []).find(
     (p) => p.agente_nome && nomeAgente && 
            p.agente_nome.trim().toLowerCase() === nomeAgente.trim().toLowerCase() &&
            p.status !== 'concluido' && p.status !== 'cancelado'
   );
 
-  // Envio da solicitação
   const handleSolicitar = async (e) => {
     e.preventDefault();
     if (!nomeAgente.trim()) {
-      alert('Por favor, digite seu nome de agente.');
+      alert('Identifique o nome do agente.');
       return;
     }
     if (!nomeMorador.trim()) {
-      alert('Por favor, informe o nome do morador.');
+      alert('Informe o nome do morador ou responsável pelo imóvel.');
       return;
     }
 
@@ -116,272 +115,329 @@ export function SolicitarEscadaScreen({ pedidos, onCriarPedido, onConcluirPedido
       setNomeMorador('');
       setReferencia('');
     } catch (err) {
-      alert('Erro ao enviar pedido. Tente novamente.');
+      alert('Erro na comunicação do chamado. Tente novamente.');
     } finally {
       setEnviando(false);
     }
   };
 
+  const handleFecharChamado = async (id) => {
+    if (window.confirm('Deseja encerrar e fechar esta ordem de apoio?')) {
+      await onConcluirPedido(id);
+    }
+  };
+
   return (
-    <div className="max-w-md mx-auto space-y-3 pb-8">
-      {/* 1. SE TIVER UM PEDIDO ATIVO: BALÃO ESTILO WHATSAPP DE ACOMPANHAMENTO */}
+    <div className="max-w-md mx-auto space-y-3 pb-8 font-sans">
+      {/* 1. ORDEM DE APOIO EM ABERTO (SE HOUVER) */}
       {pedidoAtivo && (
-        <div className="bg-[#DCF8C6] border border-[#B2E496] p-4 rounded-2xl shadow-sm space-y-3">
-          <div className="flex items-center justify-between text-xs text-[#075E54] font-bold">
-            <span className="flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-emerald-600 animate-spin" />
-              PEDIDO EM ANDAMENTO
-            </span>
-            <span className="flex items-center gap-0.5 text-[#53bdeb]">
-              <CheckCheck className="w-4 h-4" />
-              Enviado
-            </span>
+        <section className="bg-white border border-emerald-300 rounded-xl p-3.5 shadow-sm space-y-2.5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <div className="flex items-center gap-1.5">
+              <Radio className="w-4 h-4 text-emerald-600 animate-pulse" />
+              <span className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+                Ordem de Apoio em Aberto
+              </span>
+            </div>
+            {/* BOTÃO FECHAR CHAMADO */}
+            <button
+              type="button"
+              onClick={() => handleFecharChamado(pedidoAtivo.id)}
+              className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-rose-600 px-2 py-0.5 rounded hover:bg-slate-100"
+              title="Fechar chamado"
+            >
+              <X className="w-3.5 h-3.5" />
+              <span>Fechar</span>
+            </button>
           </div>
 
-          <div className="bg-white/80 p-3 rounded-xl space-y-1.5 text-xs text-slate-800">
-            <div className="font-bold text-sm text-slate-900">
-              🏠 Morador: {pedidoAtivo.morador_nome || 'Não informado'}
-            </div>
-            <div className="text-slate-700">
-              📍 {pedidoAtivo.rua} {pedidoAtivo.numero && `nº ${pedidoAtivo.numero}`}
-            </div>
-            <div className="text-slate-500 font-medium">
-              Quarteirão: <strong>{pedidoAtivo.quarteirao}</strong> • Microárea: <strong>{pedidoAtivo.microarea}</strong>
+          <div className="space-y-1 text-xs text-slate-700 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+            <div><strong>Morador:</strong> {pedidoAtivo.morador_nome}</div>
+            <div><strong>Logradouro:</strong> {pedidoAtivo.rua} {pedidoAtivo.numero && `nº ${pedidoAtivo.numero}`}</div>
+            <div className="text-[11px] text-slate-600">
+              <strong>Território:</strong> {pedidoAtivo.quarteirao} • {pedidoAtivo.microarea}
             </div>
           </div>
 
-          {/* Etapas Visuais */}
-          <div className="flex items-center justify-between gap-1 pt-1">
-            <div className={`flex-1 py-1.5 px-2 rounded-lg text-center text-[10px] font-black uppercase ${
-              pedidoAtivo.status === 'solicitado' ? 'bg-amber-500 text-white shadow-xs animate-pulse' : 'bg-white/60 text-slate-600'
+          {/* Barra de Progresso Operacional */}
+          <div className="grid grid-cols-3 gap-1.5 pt-1 text-center text-[10px] font-bold uppercase">
+            <div className={`py-1.5 px-1 rounded-md border ${
+              pedidoAtivo.status === 'solicitado' 
+                ? 'bg-amber-100 text-amber-900 border-amber-300 ring-1 ring-amber-400 font-extrabold' 
+                : 'bg-slate-50 text-slate-500 border-slate-200'
             }`}>
               1. Solicitado
             </div>
-            <div className={`flex-1 py-1.5 px-2 rounded-lg text-center text-[10px] font-black uppercase ${
-              pedidoAtivo.status === 'a_caminho' ? 'bg-[#25D366] text-white shadow-xs animate-bounce' : 'bg-white/60 text-slate-600'
+            <div className={`py-1.5 px-1 rounded-md border ${
+              pedidoAtivo.status === 'a_caminho' 
+                ? 'bg-blue-100 text-blue-900 border-blue-300 ring-1 ring-blue-400 font-extrabold' 
+                : 'bg-slate-50 text-slate-500 border-slate-200'
             }`}>
-              2. A Caminho 🚚
+              2. Em Trânsito
             </div>
-            <div className={`flex-1 py-1.5 px-2 rounded-lg text-center text-[10px] font-black uppercase ${
-              pedidoAtivo.status === 'entregue' ? 'bg-blue-600 text-white shadow-xs' : 'bg-white/60 text-slate-600'
+            <div className={`py-1.5 px-1 rounded-md border ${
+              pedidoAtivo.status === 'entregue' 
+                ? 'bg-emerald-100 text-emerald-900 border-emerald-300 ring-1 ring-emerald-400 font-extrabold' 
+                : 'bg-slate-50 text-slate-500 border-slate-200'
             }`}>
-              3. Entregue 🪜
+              3. Entregue
             </div>
           </div>
 
           {pedidoAtivo.status === 'a_caminho' && (
-            <div className="bg-emerald-700 text-white text-xs font-bold p-2.5 rounded-xl text-center shadow-xs">
-              🚚 O carro da escada já está a caminho do seu local!
+            <div className="bg-blue-50 text-blue-800 text-xs p-2 rounded-md font-medium text-center border border-blue-200">
+              Veículo de apoio deslocando-se para o seu imóvel.
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => onConcluirPedido(pedidoAtivo.id)}
-            className="w-full py-2.5 bg-[#075E54] hover:bg-[#064e46] text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5"
-          >
-            <CheckCircle2 className="w-4 h-4 text-[#25D366]" />
-            Vistoria Concluída / Liberar Escada
-          </button>
-        </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => onConcluirPedido(pedidoAtivo.id)}
+              className="flex-1 h-11 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5"
+            >
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span>Concluir e Liberar Escada</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleFecharChamado(pedidoAtivo.id)}
+              className="px-3 h-11 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-600 rounded-lg text-xs font-bold transition-all border border-slate-200 flex items-center justify-center gap-1"
+              title="Fechar chamado atual"
+            >
+              <X className="w-4 h-4" />
+              <span>Fechar</span>
+            </button>
+          </div>
+        </section>
       )}
 
-      {/* 2. FORMULÁRIO PRINCIPAL MINIMALISTA (ESTILO WHATSAPP) */}
-      <form onSubmit={handleSolicitar} className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
-        {/* Cabeçalho do Card */}
-        <div className="bg-[#128C7E] px-4 py-3 text-white flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🪜</span>
-            <div>
-              <h2 className="text-sm font-bold leading-tight">Solicitar Apoio de Escada</h2>
-              <p className="text-[11px] text-emerald-100">O GPS preenche tudo automaticamente</p>
-            </div>
+      {/* 2. FORMULÁRIO OPERACIONAL CORPORATIVO (OTIMIZADO PARA TOUCH MOBILE) */}
+      <form onSubmit={handleSolicitar} className="bg-white rounded-xl shadow-xs border border-slate-200 p-3.5 space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-600" />
+            <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wide">
+              Solicitação Operacional de Escada
+            </h2>
           </div>
           <button
             type="button"
             onClick={capturarLocalizacao}
-            className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all text-xs flex items-center gap-1"
-            title="Atualizar GPS"
+            className="text-[11px] font-medium text-emerald-700 hover:text-emerald-800 flex items-center gap-1 p-1 rounded hover:bg-slate-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${gpsStatus === 'buscando' ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3 h-3 ${gpsStatus === 'buscando' ? 'animate-spin' : ''}`} />
+            <span>Atualizar GPS</span>
           </button>
         </div>
 
-        <div className="p-4 space-y-3.5">
-          {/* Campo: Nome do Agente (Salvo automaticamente) */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-              Agente ACE
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <User className="w-4 h-4 text-[#128C7E]" />
-              </div>
-              <input
-                type="text"
-                required
-                value={nomeAgente}
-                onChange={(e) => handleAgenteChange(e.target.value)}
-                placeholder="Seu nome"
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#25D366]"
-              />
+        {/* Identificação do Agente */}
+        <div>
+          <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+            Agente Responsável
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <User className="w-4 h-4 text-slate-500" />
             </div>
+            <input
+              type="text"
+              required
+              value={nomeAgente}
+              onChange={(e) => handleAgenteChange(e.target.value)}
+              placeholder="Nome do agente"
+              className="w-full h-11 pl-9 pr-3 bg-slate-50 border border-slate-300 rounded-lg text-xs font-semibold text-slate-900 focus:bg-white focus:outline-hidden focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
+            />
           </div>
+        </div>
 
-          {/* Campo Principal: Nome do Morador */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Nome do Morador / Responsável <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <Home className="w-4 h-4 text-[#128C7E]" />
-              </div>
-              <input
-                type="text"
-                required
-                autoFocus
-                value={nomeMorador}
-                onChange={(e) => setNomeMorador(e.target.value)}
-                placeholder="Ex: Dona Maria, Sr. João"
-                className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-slate-300 rounded-xl text-sm font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:border-[#25D366] focus:outline-hidden focus:ring-2 focus:ring-[#25D366]/20 shadow-xs"
-              />
+        {/* Identificação do Morador com Botão Limpar */}
+        <div>
+          <label className="block text-[11px] font-semibold text-slate-800 mb-1">
+            Morador / Responsável pelo Imóvel <span className="text-rose-500">*</span>
+          </label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <Home className="w-4 h-4 text-slate-500" />
             </div>
-          </div>
-
-          {/* CARD DE LOCALIZAÇÃO 100% AUTOMÁTICA (BALÃO VERDE WHATSAPP) */}
-          <div className="bg-[#E7F8E8] border border-[#C6EDC8] rounded-xl p-3 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-black text-[#075E54] flex items-center gap-1">
-                <MapPin className="w-3.5 h-3.5 text-[#25D366] shrink-0" />
-                ENDEREÇO OBTIDO PELO GPS
-              </span>
-              {gpsStatus === 'buscando' ? (
-                <span className="text-[10px] text-amber-700 font-bold animate-pulse flex items-center gap-1">
-                  <RefreshCw className="w-3 h-3 animate-spin" /> Localizando...
-                </span>
-              ) : (
-                <span className="text-[10px] text-emerald-800 font-bold flex items-center gap-0.5">
-                  <Check className="w-3 h-3 text-[#25D366]" /> Pronto
-                </span>
-              )}
-            </div>
-
-            <div className="text-sm font-black text-slate-900">
-              {localizacao.rua} {localizacao.numero && `nº ${localizacao.numero}`}
-            </div>
-
-            <div className="text-xs text-slate-700 flex items-center gap-2 flex-wrap font-semibold">
-              <span className="bg-white/80 px-2 py-0.5 rounded-md border border-emerald-300/50">
-                Quarteirão: <strong>{localizacao.quarteirao}</strong>
-              </span>
-              <span className="bg-white/80 px-2 py-0.5 rounded-md border border-emerald-300/50">
-                Microárea: <strong>{localizacao.microarea}</strong>
-              </span>
-              {localizacao.accuracy && (
-                <span className="text-[10px] text-slate-500">
-                  (Precisão ~{localizacao.accuracy}m)
-                </span>
-              )}
-            </div>
-
-            {/* Opção discreta de ajuste */}
-            <div className="pt-1 text-right">
+            <input
+              type="text"
+              required
+              autoFocus
+              value={nomeMorador}
+              onChange={(e) => setNomeMorador(e.target.value)}
+              placeholder="Nome do morador ou estabelecimento"
+              className="w-full h-12 pl-9 pr-9 bg-white border-2 border-slate-300 rounded-lg text-sm font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-hidden focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 shadow-2xs"
+            />
+            {nomeMorador && (
               <button
                 type="button"
-                onClick={() => setMostrarEdicao(!mostrarEdicao)}
-                className="text-[10px] text-[#075E54] hover:underline font-bold inline-flex items-center gap-0.5"
+                onClick={() => setNomeMorador('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                title="Limpar campo"
               >
-                {mostrarEdicao ? 'Ocultar detalhes' : 'Ajustar número ou rua manualmente'}
-                {mostrarEdicao ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                <X className="w-4 h-4" />
               </button>
-            </div>
+            )}
+          </div>
+        </div>
 
-            {/* Campos manuais opcionais expansíveis */}
-            {mostrarEdicao && (
-              <div className="pt-2 border-t border-emerald-200/60 grid grid-cols-2 gap-2 text-xs">
+        {/* MAPINHA INCORPORADO PARA O AGENTE VISUALIZAR OS QUARTEIRÕES E MICROÁREAS */}
+        <div className="space-y-1.5 pt-1">
+          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
+            <span className="flex items-center gap-1">
+              <Compass className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Mapa Territorial Local (Quarteirões e Microáreas)</span>
+            </span>
+            <span className="text-[10px] text-slate-500 font-normal">
+              {localizacao.accuracy ? `Precisão: ±${localizacao.accuracy}m` : 'Buscando sinal...'}
+            </span>
+          </div>
+
+          <MapaAgente
+            userPos={{ latitude: localizacao.latitude, longitude: localizacao.longitude }}
+            microarea={localizacao.microarea}
+            quarteirao={localizacao.quarteirao}
+          />
+        </div>
+
+        {/* LOCALIZAÇÃO DETECTADA AUTOMATICAMENTE */}
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1.5">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="font-bold text-slate-800 flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 text-emerald-700" />
+              Endereço Registrado pelo GPS
+            </span>
+            {gpsStatus === 'buscando' ? (
+              <span className="text-amber-700 font-medium animate-pulse">Sincronizando...</span>
+            ) : (
+              <span className="text-emerald-700 font-semibold flex items-center gap-0.5">
+                <Check className="w-3 h-3 text-emerald-600" /> Confirmado
+              </span>
+            )}
+          </div>
+
+          <div className="text-xs font-bold text-slate-900">
+            {localizacao.rua} {localizacao.numero && `nº ${localizacao.numero}`}
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-600">
+            <span className="bg-white px-2 py-0.5 rounded border border-slate-200 font-medium">
+              Quarteirão: <strong>{localizacao.quarteirao}</strong>
+            </span>
+            <span className="bg-white px-2 py-0.5 rounded border border-slate-200 font-medium">
+              Microárea: <strong>{localizacao.microarea}</strong>
+            </span>
+          </div>
+
+          <div className="pt-1 text-right">
+            <button
+              type="button"
+              onClick={() => setMostrarEdicaoManual(!mostrarEdicaoManual)}
+              className="text-[10px] text-emerald-700 hover:text-emerald-800 font-semibold inline-flex items-center gap-0.5"
+            >
+              {mostrarEdicaoManual ? 'Ocultar ajuste manual' : 'Ajustar logradouro ou número'}
+              {mostrarEdicaoManual ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+          </div>
+
+          {/* PAINEL DE EDIÇÃO MANUAL COM BOTÃO FECHAR */}
+          {mostrarEdicaoManual && (
+            <div className="pt-2 border-t border-slate-200 space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-slate-700 text-[11px]">Ajuste Manual de Logradouro</span>
+                <button
+                  type="button"
+                  onClick={() => setMostrarEdicaoManual(false)}
+                  className="text-[10px] text-slate-500 hover:text-slate-800 flex items-center gap-0.5"
+                >
+                  <X className="w-3 h-3" />
+                  <span>Fechar</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
                 <div className="col-span-2">
-                  <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Rua</label>
+                  <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Logradouro</label>
                   <input
                     type="text"
                     value={localizacao.rua}
                     onChange={(e) => setLocalizacao({ ...localizacao, rua: e.target.value })}
-                    className="w-full px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs"
+                    className="w-full h-9 px-2 bg-white border border-slate-300 rounded text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Número</label>
+                  <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Número</label>
                   <input
                     type="text"
                     value={localizacao.numero}
                     onChange={(e) => setLocalizacao({ ...localizacao, numero: e.target.value })}
-                    placeholder="Ex: 120 ou S/N"
-                    className="w-full px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs"
+                    placeholder="Ex: 140 ou S/N"
+                    className="w-full h-9 px-2 bg-white border border-slate-300 rounded text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-600 mb-0.5">Quarteirão</label>
+                  <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Quarteirão</label>
                   <input
                     type="text"
                     value={localizacao.quarteirao}
                     onChange={(e) => setLocalizacao({ ...localizacao, quarteirao: e.target.value })}
-                    className="w-full px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs"
+                    className="w-full h-9 px-2 bg-white border border-slate-300 rounded text-xs"
                   />
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* Campo Opcional: Referência */}
-          <div>
-            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-              Ponto de Referência <span className="text-slate-400 font-normal">(Opcional)</span>
-            </label>
-            <input
-              type="text"
-              value={referencia}
-              onChange={(e) => setReferencia(e.target.value)}
-              placeholder="Ex: portão azul, casa de fundos, sobrado"
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#25D366]"
-            />
-          </div>
-
-          {/* BOTÃO PRINCIPAL VERDE ESTILO WHATSAPP */}
-          <button
-            type="submit"
-            disabled={enviando}
-            className="w-full py-3.5 bg-[#25D366] hover:bg-[#1EBE5D] active:scale-[0.99] text-slate-950 font-black text-base rounded-2xl shadow-md transition-all flex items-center justify-center gap-2"
-          >
-            <span className="text-xl">🪜</span>
-            <span>{enviando ? 'SOLICITANDO...' : 'SOLICITAR ESCADA AGORA'}</span>
-            <Send className="w-4 h-4 text-slate-950 ml-1" />
-          </button>
+            </div>
+          )}
         </div>
+
+        {/* Referência Opcional */}
+        <div>
+          <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+            Ponto de Referência <span className="text-slate-400 font-normal">(Opcional)</span>
+          </label>
+          <input
+            type="text"
+            value={referencia}
+            onChange={(e) => setReferencia(e.target.value)}
+            placeholder="Ex: fundos, sobrado, portão de grade"
+            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 focus:bg-white focus:outline-hidden focus:border-emerald-600"
+          />
+        </div>
+
+        {/* BOTÃO PRINCIPAL CORPORATIVO COM ALTURA ERGONÔMICA PARA TOUCH */}
+        <button
+          type="submit"
+          disabled={enviando}
+          className="w-full h-12 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 border border-emerald-800"
+        >
+          <Send className="w-4 h-4 text-emerald-200" />
+          <span>{enviando ? 'Enviando Solicitação...' : 'Solicitar Apoio de Escada'}</span>
+        </button>
       </form>
 
-      {/* 3. HISTÓRICO RÁPIDO DO AGENTE */}
+      {/* HISTÓRICO RECENTE */}
       {pedidos && pedidos.length > 0 && (
-        <div className="space-y-2 pt-2">
+        <section className="space-y-1.5 pt-1">
           <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider px-1">
-            Pedidos Recentes
+            Ordens Recentes
           </div>
           {pedidos.slice(0, 3).map((p) => (
-            <div key={p.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-xs flex items-center justify-between text-xs">
+            <div key={p.id} className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs flex items-center justify-between text-xs">
               <div>
-                <div className="font-bold text-slate-900">{p.morador_nome || 'Morador'}</div>
-                <div className="text-slate-500 text-[11px]">{p.rua} • {p.quarteirao}</div>
+                <div className="font-semibold text-slate-900">{p.morador_nome || 'Morador'}</div>
+                <div className="text-[11px] text-slate-500">{p.rua} • {p.quarteirao}</div>
               </div>
-              <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${
+              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
                 p.status === 'solicitado' ? 'bg-amber-100 text-amber-800' :
-                p.status === 'a_caminho' ? 'bg-emerald-100 text-emerald-800' :
-                p.status === 'entregue' ? 'bg-blue-100 text-blue-800' :
+                p.status === 'a_caminho' ? 'bg-blue-100 text-blue-800' :
+                p.status === 'entregue' ? 'bg-emerald-100 text-emerald-800' :
                 'bg-slate-100 text-slate-600'
               }`}>
                 {p.status.replace('_', ' ')}
               </span>
             </div>
           ))}
-        </div>
+        </section>
       )}
     </div>
   );
