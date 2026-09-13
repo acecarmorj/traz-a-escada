@@ -67,7 +67,7 @@ export function App() {
   const countPendentes = pedidos.filter(p => p.status === 'solicitado').length;
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#EFEAE2] flex flex-col font-sans">
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -90,12 +90,12 @@ export function App() {
         )}
       </main>
 
-      <footer className="py-4 px-4 text-center text-xs text-slate-500 border-t border-slate-200 bg-white space-y-1">
-        <p className="font-semibold text-slate-700">
+      <footer className="py-4 px-4 text-center text-xs text-slate-600 border-t border-slate-300/60 bg-[#EFEAE2] space-y-1">
+        <p className="font-semibold text-slate-800">
           Programa Municipal de Combate às Endemias • Carmo - RJ
         </p>
-        <p className="text-slate-500">
-          Desenvolvido por <span className="font-bold text-amber-700">@AlmirLK</span>
+        <p className="text-slate-600">
+          Desenvolvido por <span className="font-bold text-[#075E54]">@AlmirLK</span>
         </p>
       </footer>
     </div>
