@@ -142,11 +142,9 @@ export function PainelCentralScreen({ pedidos, onMudarStatus, driverPos }) {
   };
 
   const handleFecharOrdem = async (id) => {
-    if (window.confirm('Deseja encerrar e fechar este chamado?')) {
-      await onMudarStatus(id, 'cancelado');
-      playSuccessSound();
-      stopAlarmLoop();
-    }
+    await onMudarStatus(id, 'cancelado');
+    playSuccessSound();
+    stopAlarmLoop();
   };
 
   // Pedido focado no card inferior

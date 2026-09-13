@@ -148,17 +148,15 @@ export function SolicitarEscadaScreen({
     }
   };
 
-  // Cancela ou fecha ordem de apoio ativa
+  // Cancela ou fecha ordem de apoio ativa imediatamente
   const handleCancelarAtivo = async (id) => {
-    if (window.confirm('Deseja cancelar esta solicitação de escada?')) {
-      if (onCancelarPedido) {
-        await onCancelarPedido(id);
-      } else {
-        await onConcluirPedido(id);
-      }
-      dispensarPedido(id);
-      playSuccessSound();
+    if (onCancelarPedido) {
+      await onCancelarPedido(id);
+    } else if (onConcluirPedido) {
+      await onConcluirPedido(id);
     }
+    dispensarPedido(id);
+    playSuccessSound();
   };
 
   // Fecha o card do chamado concluído para iniciar o próximo
