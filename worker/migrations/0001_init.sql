@@ -1,7 +1,11 @@
-﻿-- Criação da tabela de pedidos de escada para o combate à Dengue
+﻿-- Criação da tabela de pedidos de escada para o combate à Dengue com suporte a endereço e morador
 CREATE TABLE IF NOT EXISTS pedidos_escada (
   id TEXT PRIMARY KEY,
   agente_nome TEXT NOT NULL,
+  morador_nome TEXT,
+  rua TEXT,
+  numero TEXT,
+  bairro TEXT,
   microarea TEXT NOT NULL,
   quarteirao TEXT NOT NULL,
   latitude REAL NOT NULL,

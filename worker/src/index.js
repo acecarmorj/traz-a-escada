@@ -29,12 +29,11 @@ export default {
     const path = url.pathname;
 
     try {
-      // 1. Health check
       if (path === '/api/health' || path === '/health') {
         return json({ status: 'ok', app: 'Traz a Escada ACE Carmo', timestamp: new Date().toISOString() });
       }
 
-      // 2. Listar pedidos
+      // Listar pedidos
       if (path === '/api/pedidos' && request.method === 'GET') {
         const query = `
           SELECT * FROM pedidos_escada 
@@ -45,7 +44,7 @@ export default {
         return json(results || []);
       }
 
-      // 3. Criar pedido
+      // Criar pedido
       if (path === '/api/pedidos' && request.method === 'POST') {
         const body = await request.json();
         const id = body.id || `escada-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
@@ -53,16 +52,21 @@ export default {
 
         const insert = `
           INSERT INTO pedidos_escada (
-            id, agente_nome, microarea, quarteirao, latitude, longitude, precisao_gps, referencia, status, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            id, agente_nome, morador_nome, rua, numero, bairro, microarea, quarteirao, 
+            latitude, longitude, precisao_gps, referencia, status, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
 
         await env.DB.prepare(insert)
           .bind(
             id,
-            body.agente_nome,
-            body.microarea,
-            body.quarteirao,
+            body.agente_nome || 'Agente ACE',
+            body.morador_nome || '',
+            body.rua || '',
+            body.numero || '',
+            body.bairro || '',
+            body.microarea || '',
+            body.quarteirao || '',
             body.latitude,
             body.longitude,
             body.precisao_gps || 10,
@@ -76,7 +80,7 @@ export default {
         return json({ id, status: 'solicitado', message: 'Pedido criado com sucesso' }, 201);
       }
 
-      // 4. Atualizar status do pedido: /api/pedidos/:id/status
+      // Atualizar status do pedido
       if (path.startsWith('/api/pedidos/') && request.method === 'PATCH') {
         const parts = path.split('/');
         const id = parts[3];
