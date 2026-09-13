@@ -58,26 +58,27 @@ export function App() {
     return novo;
   };
 
-  const handleMudarStatus = async (id, status) => {
-    const atualizado = await api.atualizarStatus(id, status);
-    setPedidos(prev => prev.map(p => p.id === id ? { ...p, status } : p));
+  const handleMudarStatus = async (id, status, detalhes = {}) => {
+    const atualizado = await api.atualizarStatus(id, status, detalhes);
+    setPedidos(prev => prev.map(p => p.id === id ? { ...p, status, ...detalhes } : p));
     return atualizado;
   };
 
   const countPendentes = pedidos.filter(p => p.status === 'solicitado').length;
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
+    <div className="h-[100dvh] max-h-[100dvh] w-full flex flex-col overflow-hidden bg-slate-950 font-sans">
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         countPendentes={countPendentes}
       />
 
-      <main className="flex-1 p-2 sm:p-4 max-w-md sm:max-w-xl w-full mx-auto">
+      <main className="flex-1 relative w-full h-full overflow-hidden">
         {activeTab === 'agente' ? (
           <SolicitarEscadaScreen
             pedidos={pedidos}
+            driverPos={driverPos}
             onCriarPedido={handleCriarPedido}
             onConcluirPedido={(id) => handleMudarStatus(id, 'concluido')}
           />
@@ -89,15 +90,6 @@ export function App() {
           />
         )}
       </main>
-
-      <footer className="py-3 px-4 text-center text-[11px] text-slate-500 border-t border-slate-200 bg-white space-y-0.5">
-        <p className="font-semibold text-slate-700">
-          Secretaria Municipal de Saúde • Carmo - RJ
-        </p>
-        <p className="text-slate-500">
-          Programa de Combate às Endemias • Desenvolvido por <span className="font-semibold text-slate-800">@AlmirLK</span>
-        </p>
-      </footer>
     </div>
   );
 }

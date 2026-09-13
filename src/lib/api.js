@@ -93,31 +93,53 @@ export const api = {
   },
 
   /**
-   * Atualiza o status de um pedido
+   * Atualiza o status de um pedido com suporte a desfecho da visita e coordenadas do motorista
    */
-  async atualizarStatus(id, novoStatus) {
+  async atualizarStatus(id, novoStatus, detalhes = {}) {
     const lista = getLocalPedidos();
     const idx = lista.findIndex(p => p.id === id);
     if (idx !== -1) {
-      lista[idx].status = novoStatus;
+      if (novoStatus) lista[idx].status = novoStatus;
       lista[idx].updated_at = new Date().toISOString();
-      if (novoStatus === 'entregue') {
-        lista[idx].entregue_at = new Date().toISOString();
+      if (novoStatus === 'entregue' || novoStatus === 'concluido') {
+        lista[idx].entregue_at = lista[idx].entregue_at || new Date().toISOString();
       }
+      if (detalhes.resultado_visita) lista[idx].resultado_visita = detalhes.resultado_visita;
+      if (detalhes.observacao_desfecho) lista[idx].observacao_desfecho = detalhes.observacao_desfecho;
+      if (detalhes.finalizado_por) lista[idx].finalizado_por = detalhes.finalizado_por;
+      if (detalhes.motorista_lat !== undefined) lista[idx].motorista_lat = detalhes.motorista_lat;
+      if (detalhes.motorista_lng !== undefined) lista[idx].motorista_lng = detalhes.motorista_lng;
+      if (detalhes.motorista_nome) lista[idx].motorista_nome = detalhes.motorista_nome;
       setLocalPedidos(lista);
     }
 
+    const payload = {
+      ...(novoStatus ? { status: novoStatus } : {}),
+      ...detalhes
+    };
+
     try {
-      await fetch(`${API_BASE}/pedidos/${id}/status`, {
+      await fetch(`${API_BASE}/pedidos/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: novoStatus })
+        body: JSON.stringify(payload)
       });
     } catch (err) {
       // offline
     }
 
     return lista[idx] || null;
+  },
+
+  /**
+   * Atualiza as coordenadas em tempo real do motorista da escada
+   */
+  async atualizarGpsMotorista(id, lat, lng, nome = 'Apoio Escada') {
+    return this.atualizarStatus(id, null, {
+      motorista_lat: lat,
+      motorista_lng: lng,
+      motorista_nome: nome
+    });
   },
 
   onUpdate(callback) {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Cloudflare Worker API para o sistema Traz a Escada (ACE Dengue Carmo).
  * Persistência ultrarrápida com Cloudflare D1 (SQLite).
  */
@@ -80,24 +80,75 @@ export default {
         return json({ id, status: 'solicitado', message: 'Pedido criado com sucesso' }, 201);
       }
 
-      // Atualizar status do pedido
+      // Atualizar status e/ou coordenadas do motorista
       if (path.startsWith('/api/pedidos/') && request.method === 'PATCH') {
         const parts = path.split('/');
         const id = parts[3];
         const body = await request.json();
-        const novoStatus = body.status;
         const now = new Date().toISOString();
 
-        let updateQuery = `UPDATE pedidos_escada SET status = ?, updated_at = ? WHERE id = ?`;
-        let params = [novoStatus, now, id];
+        let updateQuery = `
+          UPDATE pedidos_escada 
+          SET status = COALESCE(?, status), 
+              updated_at = ?,
+              resultado_visita = COALESCE(?, resultado_visita),
+              observacao_desfecho = COALESCE(?, observacao_desfecho),
+              finalizado_por = COALESCE(?, finalizado_por),
+              motorista_lat = COALESCE(?, motorista_lat),
+              motorista_lng = COALESCE(?, motorista_lng),
+              motorista_nome = COALESCE(?, motorista_nome)
+          WHERE id = ?
+        `;
+        let params = [
+          body.status || null, 
+          now, 
+          body.resultado_visita || null, 
+          body.observacao_desfecho || null, 
+          body.finalizado_por || null, 
+          body.motorista_lat !== undefined ? body.motorista_lat : null,
+          body.motorista_lng !== undefined ? body.motorista_lng : null,
+          body.motorista_nome || null,
+          id
+        ];
 
-        if (novoStatus === 'entregue') {
-          updateQuery = `UPDATE pedidos_escada SET status = ?, updated_at = ?, entregue_at = ? WHERE id = ?`;
-          params = [novoStatus, now, now, id];
+        if (body.status === 'entregue' || body.status === 'concluido') {
+          updateQuery = `
+            UPDATE pedidos_escada 
+            SET status = COALESCE(?, status), 
+                updated_at = ?, 
+                entregue_at = COALESCE(entregue_at, ?),
+                resultado_visita = COALESCE(?, resultado_visita),
+                observacao_desfecho = COALESCE(?, observacao_desfecho),
+                finalizado_por = COALESCE(?, finalizado_por),
+                motorista_lat = COALESCE(?, motorista_lat),
+                motorista_lng = COALESCE(?, motorista_lng),
+                motorista_nome = COALESCE(?, motorista_nome)
+            WHERE id = ?
+          `;
+          params = [
+            body.status || null, 
+            now, 
+            now, 
+            body.resultado_visita || null, 
+            body.observacao_desfecho || null, 
+            body.finalizado_por || null, 
+            body.motorista_lat !== undefined ? body.motorista_lat : null,
+            body.motorista_lng !== undefined ? body.motorista_lng : null,
+            body.motorista_nome || null,
+            id
+          ];
         }
 
         await env.DB.prepare(updateQuery).bind(...params).run();
-        return json({ id, status: novoStatus, updated_at: now });
+        return json({ 
+          id, 
+          status: body.status, 
+          resultado_visita: body.resultado_visita, 
+          observacao_desfecho: body.observacao_desfecho, 
+          motorista_lat: body.motorista_lat,
+          motorista_lng: body.motorista_lng,
+          updated_at: now 
+        });
       }
 
       return json({ error: 'Endpoint não encontrado' }, 404);
